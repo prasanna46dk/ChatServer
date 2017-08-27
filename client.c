@@ -40,8 +40,13 @@ Packet *ParsetoPacket(char *buff, int packetno, char *from){
     return packet;
 }
 
-int validateBuff(char buff){
-    if (buff == '@')
+int validateBuff(char *buff){
+    printf("Connected to Server 127.0.0.1.\nPlease Enter address(a) and port number(b) in a format a:b :- \n");
+    scanf("%[^\n]",buff);
+    char c;
+    scanf("%c",&c);
+    printf("%s\n",buff);
+    if (buff[1] == '@')
        return OLDPEER;
     else 
        return NEWPEER;
@@ -97,20 +102,20 @@ int client(int port)
     
     printIntroMessage(buffer);
     while (1){
-            scanf("%[^\n]",buffer);
-            char c;
-            scanf("%c",&c);
-            printf("%s\n",buffer);
-	int message_to_whom = validateBuff(buffer[1]);
-	if (message_to_whom == OLDPEER) {
-	    packet -> Message = buffer;
-            packet -> LengthofMessage = strlen(buffer);
-        }
-	else 
-	    packet = ParsetoPacket(buffer,0,"127.0.0.1:49152");
-        send(sock , packet, sizeof(packet) , 0 );
+	int message_to_whom = validateBuff(buffer);
+        printf("%s\n",buffer);
+	//if (message_to_whom == OLDPEER) {
+	//    packet -> Message = buffer;
+        //    packet -> LengthofMessage = strlen(buffer);
+        //
+        //} 
+	//else 
+	    //packet = ParsetoPacket(buffer,0,"127.0.0.1:49152");
+        send(sock , buffer, sizeof(buffer) , 0 );
         printf("Hello message sent\n");
         hello = "Please enter your message:\n";
+        if ((read (sock, buffer, sizeof(buffer))) > 0);
+            printf("Received : %s",buffer);
         //valread = read( sock , buffer, 1024);
         //printf("%s\n",buffer );
     }
