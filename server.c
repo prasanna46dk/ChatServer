@@ -1,5 +1,3 @@
-//Example code: A simple server side code, which echos back the received message.
-//Handle multiple socket connections with select and fd_set on Linux 
 #include <stdio.h> 
 #include <string.h>   //strlen 
 #include <stdlib.h> 
@@ -103,7 +101,7 @@ typedef struct SocketTable {
      char clientName[10];
 }SockTab;
 
-void getPeerName(char packet[], char buff[]) {
+char * getPeerName(char packet[], char buff[]) {
     int i, j=0;
     for (i = 0; i < strlen(packet); i++) {
         if (j >= 1) {     
@@ -119,6 +117,7 @@ void getPeerName(char packet[], char buff[]) {
            j++;
         
     }
+    return buff;
 }
 
 int getDestSocket(char packet[], char buff[], SockTab Table[]) {
@@ -138,7 +137,7 @@ int getDestSocket(char packet[], char buff[], SockTab Table[]) {
     }
     for (i = 0; i < 30 ; i++) {
         if (strcmp (buff, Table[i].clientName)) {
-            return Table [i].socket;
+            return Table[i].socket;
         }
     } 
     return -1;
@@ -147,82 +146,68 @@ int getDestSocket(char packet[], char buff[], SockTab Table[]) {
 int server(char *Address, int Port)  
 {  
     int opt = TRUE;  
-    int listen_socket , addrlen , new_socket , client_socket[30]  = {0}, 
-          max_clients = 30 , activity, i , valread , sd, j;  
+    int listen_socket , addrlen , new_socket , client_socket[30]  = {0}, max_clients = 30 , activity, i , valread , sd, j;  
     int connected_to_other_server = 0; 
     SockTab Table[100];
+    for (i = 0; i < 100; i++)
+        Table[i].socket = 0;
+    i = 0;
     int max_sd;  
     struct sockaddr_in address;  
     char buffer[1025];  //data buffer of 1K 
     char PeerName[10] = {'\0'};
     char DestName[100] = {'\0'};
-    //set of socket descriptors 
     fd_set readfds, serverfds, clientfds;  
-    //a message 
-    char *message = "\0";  
-    if( (listen_socket = socket(AF_INET , SOCK_STREAM , 0)) == 0)  
-    {  
+    char *message = "\0"; 
+    int k; 
+    if( (listen_socket = socket(AF_INET , SOCK_STREAM , 0)) == 0)  {  
         perror("socket failed");  
         exit(EXIT_FAILURE);  
     }  
-    //set master socket to allow multiple connections , 
-    //this is just a good habit, it will work without this 
-    if( setsockopt(listen_socket, SOL_SOCKET, SO_REUSEADDR, (char *)&opt, sizeof(opt)) < 0 )  
-    {  
+    if( setsockopt(listen_socket, SOL_SOCKET, SO_REUSEADDR, (char *)&opt, sizeof(opt)) < 0 )  {  
         perror("setsockopt");  
         exit(EXIT_FAILURE);  
     }  
-    //type of socket created 
     address.sin_family = AF_INET;  
     address.sin_addr.s_addr = inet_addr(Address);  
     address.sin_port = htons(Port);  
-    //bind the socket to localhost port 8888 
-    if (bind(listen_socket, (struct sockaddr *)&address, sizeof(address))<0)  
-    {  
+    if (bind(listen_socket, (struct sockaddr *)&address, sizeof(address))<0)  {  
         perror("bind failed");  
         exit(EXIT_FAILURE);  
     }  
     printf("Listener on port %d \n", Port);  
-    //try to specify maximum of 3 pending connections for the master socket 
-    if (listen(listen_socket, 15) < 0)  
-    {  
+    
+    if (listen(listen_socket, 15) < 0)  {  
         perror("listen");  
         exit(EXIT_FAILURE);  
     }  
-    //accept the incoming connection 
+    
     addrlen = sizeof(address);  
     puts("Waiting for connections ...");  
     FD_ZERO(&readfds);  
     FD_SET(listen_socket, &readfds); 
-    while(TRUE)  
-    {  
-        //add master socket to set 
-        max_sd = listen_socket;  
-        //add child sockets to set 
-        for ( i = 0 ; i < max_clients ; i++)  
-        {  
-            //socket descriptor 
-            sd = client_socket[i];  
-            //if valid socket descriptor then add to read list 
-            if(sd > 0)  
-                FD_SET( sd, &readfds);  
-            //highest file descriptor number, need it for the select function 
-            if(sd > max_sd)  
-                max_sd = sd;  
-        }  
-        //wait for an activity on one of the sockets , timeout is NULL , 
-        //so wait indefinitely 
+    while(TRUE)  {  
+        
+        if (listen_socket > max_sd)
+            max_sd = listen_socket;  
+        //for ( i = 0 ; i < max_clients ; i++)  
+        //{  
+        //    //socket descriptor 
+        //    sd = client_socket[i];  
+        //    //if valid socket descriptor then add to read list 
+        //    if(sd > 0)  
+        //        FD_SET( sd, &readfds);  
+        //    //highest file descriptor number, need it for the select function 
+        //    if(sd > max_sd)  
+        //        max_sd = sd;  
+        //}  
         activity = select( max_sd + 1 , &readfds , NULL , NULL , NULL);  
-        if ((activity < 0) && (errno!=EINTR))  
-        {  
+        if ((activity < 0) && (errno!=EINTR))  {  
             printf("select error");  
         }  
         
-        //If something happened on the master socket , 
-        //then its an incoming connection 
         if (FD_ISSET(listen_socket, &readfds)) {  
-            if ((new_socket = accept(listen_socket,(struct sockaddr *)&address, (socklen_t*)&addrlen))<0)  
-            {  
+            if ((new_socket = accept(listen_socket,(struct sockaddr *)&address, (socklen_t*)&addrlen))<0)  {  
                 perror("accept");  
                 exit(EXIT_FAILURE);  
             }  
@@ -231,58 +216,56 @@ int server(char *Address, int Port)
             FD_SET(new_socket, &readfds);
             if (new_socket > max_sd) 
                 max_sd = new_socket;
+             
+            for (i = 0; i < 100; i++) {
+                if (Table[i].socket == 0) {
+                    k = i;
+                    break;
+                }
+            }
             
-            //inform user of socket number - used in send and receive commands 
-            getPeerName(buffer, Table[0].clientName);
-            Table [0].socket = new_socket;
+            strcpy(Table[k].clientName,getPeerName(buffer, Table[k].clientName));
+            Table[k].socket = new_socket;
+             
             printf("New connection ,socket fd is %d , ip is : %s , port : %d \n" , new_socket , inet_ntoa(address.sin_addr) , ntohs(address.sin_port));
-            // add new socket to client_socket array
             
             for (i = 0; i < max_clients; i++)  {  
                 //if position is empty 
                 if( client_socket[i] == 0 )  {  
                     client_socket[i] = new_socket;  
                     printf("Adding to list of sockets as %d\n" , i);  
-                        
                     break;  
                 } 
             } 
         }
-        //send new connection greeting message
-        //message = "Hi This is from 127.0.0.1\n";
-        //if( send(new_socket, message, strlen(message), 0) != strlen(message) )  {  
-        //    perror("send");  
-        //}  
-        //puts("Welcome message sent successfully");  
-        
-        //add new socket to array of sockets 
-        //else its some IO operation on some other socket
         for (i = 0; i < max_clients; i++)  {  
             sd = client_socket[i];
             if (FD_ISSET( sd , &readfds))  {
-                //if read is zero, it means client has closed connection so check this first
                 if ((valread = read( sd , buffer, 1024)) == 0)  {
-                    //Somebody disconnected , get his details and print 
                     getpeername(sd , (struct sockaddr*)&address ,(socklen_t*)&addrlen);
-                    //remove closed socket from readfds 
                     FD_CLR(sd, &readfds);
+                    
+                    for (k = 0; k< 100; k++) {
+                        if (sd == Table[i].socket) {
+                            Table[i].socket = 0;
+                            Table[i].clientName[0] = '\0';
+                            break;
+                        }
+                    }
                     printf("Host disconnected , ip %s , port %d \n" ,inet_ntoa(address.sin_addr), ntohs(address.sin_port)); 
+                    
                     
                     //Close the socket 
                     close(sd);
                     // make client socket entry empty 
                     client_socket[i] = 0;  
-                }
-                //Echo back the message that came in 
-                else {
-                    //set the string terminating NULL byte on the end 
-                    //of the data read 
+                } else {
                     buffer[valread] = '\0';
                     printf("%s\n",buffer);
                     j = getDestSocket(buffer,DestName, Table);
-		    if (j < 0){
-		       //error code here if socket did not found in sock table 
+		    if (j < 0) {
 		       printf("Error : No destination found");
+                       // send this to another server cause dest client is not connected to this server.
 		    } 
                     send(j , buffer,sizeof(buffer), 0);  
                 }
@@ -292,7 +275,7 @@ int server(char *Address, int Port)
     return 0; 
 }
 
-int main(int argc, char *argv[]){
+int main(int argc, char *argv[]) {
     int i=0;
     int child[3] = {0}, pid;
     int port = 49152;
