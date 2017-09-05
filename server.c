@@ -98,16 +98,64 @@ int broadcast_message(){
     //    printf("Message Broadcasted.\n");
     }
 }
+typedef struct SocketTable {
+     int socket;
+     char clientName[10];
+}SockTab;
+
+void getPeerName(char packet[], char buff[]) {
+    int i, j=0;
+    for (i = 0; i < strlen(packet); i++) {
+        if (j >= 1) {     
+           if (packet [i] == '#') {
+               buff[j-2] = '\0';
+               break;
+           } else {
+               buff[j - 2] = packet[i];
+               j++;
+           }
+        }
+        if (packet[i] == '#' && j < 2)
+           j++;
+        
+    }
+}
+
+int getDestSocket(char packet[], char buff[], SockTab Table[]) {
+    int i, j=0;
+    for (i = 0; i < strlen(packet); i++) {
+        if (j >= 3) {     
+           if (packet [i] == '#') {
+               buff[j-2] = '\0';
+               break;
+           } else {
+               buff[j - 2] = packet[i];
+               j++;
+           }
+        }
+        if (packet[i] == '#' && j < 3)
+           j++;
+    }
+    for (i = 0; i < 30 ; i++) {
+        if (strcmp (buff, Table[i].clientName)) {
+            return Table [i].socket;
+        }
+    } 
+    return -1;
+}
 
 int server(char *Address, int Port)  
 {  
     int opt = TRUE;  
     int listen_socket , addrlen , new_socket , client_socket[30]  = {0}, 
-          max_clients = 30 , activity, i , valread , sd;  
+          max_clients = 30 , activity, i , valread , sd, j;  
     int connected_to_other_server = 0; 
+    SockTab Table[100];
     int max_sd;  
     struct sockaddr_in address;  
     char buffer[1025];  //data buffer of 1K 
+    char PeerName[10] = {'\0'};
+    char DestName[100] = {'\0'};
     //set of socket descriptors 
     fd_set readfds, serverfds, clientfds;  
     //a message 
@@ -178,14 +226,18 @@ int server(char *Address, int Port)
                 perror("accept");  
                 exit(EXIT_FAILURE);  
             }  
-            
+             
+            valread = read( new_socket , buffer, 1024);
             FD_SET(new_socket, &readfds);
             if (new_socket > max_sd) 
                 max_sd = new_socket;
             
             //inform user of socket number - used in send and receive commands 
-            printf("New connection , socket fd is %d , ip is : %s , port : %d \n" , new_socket , inet_ntoa(address.sin_addr) , ntohs(address.sin_port)); 
+            getPeerName(buffer, Table[0].clientName);
+            Table [0].socket = new_socket;
+            printf("New connection ,socket fd is %d , ip is : %s , port : %d \n" , new_socket , inet_ntoa(address.sin_addr) , ntohs(address.sin_port));
             // add new socket to client_socket array
+            
             for (i = 0; i < max_clients; i++)  {  
                 //if position is empty 
                 if( client_socket[i] == 0 )  {  
@@ -208,7 +260,6 @@ int server(char *Address, int Port)
         for (i = 0; i < max_clients; i++)  {  
             sd = client_socket[i];
             if (FD_ISSET( sd , &readfds))  {
-                // 
                 //if read is zero, it means client has closed connection so check this first
                 if ((valread = read( sd , buffer, 1024)) == 0)  {
                     //Somebody disconnected , get his details and print 
@@ -228,7 +279,12 @@ int server(char *Address, int Port)
                     //of the data read 
                     buffer[valread] = '\0';
                     printf("%s\n",buffer);
-                    send(sd , "Hi This is New Message." , strlen("Hi This is New,"), 0);  
+                    j = getDestSocket(buffer,DestName, Table);
+		    if (j < 0){
+		       //error code here if socket did not found in sock table 
+		       printf("Error : No destination found");
+		    } 
+                    send(j , buffer,sizeof(buffer), 0);  
                 }
             }
         }
@@ -240,10 +296,10 @@ int main(int argc, char *argv[]){
     int i=0;
     int child[3] = {0}, pid;
     int port = 49152;
-    int listen_return = listen_broadcast_message();
-    if (listen_return < 0)
-        pid = fork();
-        if (pid == 0)
-            broadcast_message();
+    //int listen_return = listen_broadcast_message();
+    //if (listen_return < 0)
+    //    pid = fork();
+    //    if (pid == 0)
+    //        broadcast_message();
     server("127.0.0.1",49152);
 } 

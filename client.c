@@ -41,7 +41,7 @@ Packet *ParsetoPacket(char *buff, int packetno, char *from){
 }
 
 int validateBuff(char *buff){
-    printf("Connected to Server 127.0.0.1.\nPlease Enter address(a) and port number(b) in a format a:b :- \n");
+    printf("Connected to server.\nPlease Enter user tio connect to:\n");
     scanf("%[^\n]",buff);
     char c;
     scanf("%c",&c);
@@ -52,19 +52,26 @@ int validateBuff(char *buff){
        return NEWPEER;
 }
 
-char *printIntroMessage(char *buff){
-    char *destAddress;
-    char *hello;
-    hello = "Connected to Server 127.0.0.1.\nPlease Enter address(a) and port number(b) in a format a:b :- \n";
-    printf("%s",hello);
-    //char buff[100];
-    scanf("%[^\n]",buff);
-    destAddress = buff;
-    char c;
-    scanf("%c",&c);
-    printf("%s\n",buff);
-}
+//void TextUI(char *buff, char *DestUsername){
+//    printf("Connected to Server 127.0.0.1.\nPlease Enter client name to connect to :-\n");
+//    scanf("%s",DestUsername);
+//    printf("Please Enter message:\n");
+//    scanf("%[^\n]",buff);
+//    destAddress = buff;
+//    //char c;
+//    //scanf("%c",&c);
+//    printf("%s\n",buff);
+//}
 
+//char *CreateBuffer(char *SelfUserName, char *DestUsername, char *Message, char *bufferToBeSent) {
+//      len_source = strlen(SelfUserName);
+//      len_Dest = strlen(DestUsername);
+//      len_msg = strlen(Message);
+//      strcpy(bufferToBeSent, SelfUserName);
+//      bufferToBeSent[len_source] = "%";
+//      strcpy((bufferToBeSent+len_source+1), DestUsername);
+//          
+//} 
 int client(int port)
 {
     struct sockaddr_in address;
@@ -73,6 +80,12 @@ int client(int port)
     Packet *packet;
     char *To;
     char *hello = "Hello from client";
+    char c;
+    char DestUsername[15] = {'\0'};
+    char SelfUserName[15] = "one";
+    char isClient[7] = {"client"};
+    char message[976] = {'\0'};
+    char msgDirection = '0';
     char buffer[1024] = {'\0'};
     if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
     {
@@ -99,25 +112,39 @@ int client(int port)
 	close(sock);
         return -1;
     }
+    strcpy(buffer, "#@client#one#!#!#0#@#");
+    send(sock , buffer, sizeof(buffer) , 0 );
     
-    printIntroMessage(buffer);
+    //printIntroMessage(buffer);
+    //TextUI(buffer, DestUsername);
     while (1){
-	int message_to_whom = validateBuff(buffer);
-        printf("%s\n",buffer);
-	//if (message_to_whom == OLDPEER) {
-	//    packet -> Message = buffer;
-        //    packet -> LengthofMessage = strlen(buffer);
-        //
-        //} 
-	//else 
-	    //packet = ParsetoPacket(buffer,0,"127.0.0.1:49152");
+	//int message_to_whom = validateBuff(buffer);
+        //printf("%s\n",buffer);
+        printf("Enter destination username :\n");
+        scanf("%[^\n]",DestUsername);
+        scanf("%c",&c);
+        printf("Enter your Mesage: \n");
+        scanf("%[^\n]",message);
+        scanf("%c",&c);
+        strcpy(buffer,"#@#");
+        //src address
+        strcat(buffer,isClient);
+        strcat(buffer,"#");
+        strcat(buffer,"one#");
+        //dest address
+        strcat(buffer,DestUsername);
+        strcat(buffer,"#");
+        //client or server
+        //message
+        strcat(buffer,message);
+        strcat(buffer,"#");
+        //sending message
+        strcat(buffer,"0#@#");
+        
         send(sock , buffer, sizeof(buffer) , 0 );
-        printf("Hello message sent\n");
-        hello = "Please enter your message:\n";
+        printf("message sent\n");
         if ((read (sock, buffer, sizeof(buffer))) > 0);
             printf("Received : %s",buffer);
-        //valread = read( sock , buffer, 1024);
-        //printf("%s\n",buffer );
     }
     return 0;
 }
