@@ -11,7 +11,7 @@
     
 #define OLDPEER 1
 #define NEWPEER 0
-
+#define STDIN 0
 typedef struct Packet{
     unsigned int PacketNumber;
     char *From;
@@ -72,21 +72,24 @@ int validateBuff(char *buff){
 //      strcpy((bufferToBeSent+len_source+1), DestUsername);
 //          
 //} 
-int client(int port)
+int client(int port, char *name)
 {
     struct sockaddr_in address;
-    int sock = 0, valread;
+    int sock = 0, valread, length, activity, max_sd;
     struct sockaddr_in serv_addr;
+    fd_set masterfd, readfds;
     Packet *packet;
     char *To;
     char *hello = "Hello from client";
     char c;
     char DestUsername[15] = {'\0'};
-    char SelfUserName[15] = "one";
+    char SelfUserName[15];
+    strcpy(SelfUserName,name);
     char isClient[7] = {"client"};
     char message[976] = {'\0'};
     char msgDirection = '0';
     char buffer[1024] = {'\0'};
+    char readbuffer[1024] = {'\0'};
     if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
     {
         printf("\n Socket creation error \n");
@@ -112,44 +115,64 @@ int client(int port)
 	close(sock);
         return -1;
     }
-    strcpy(buffer, "#@client#one#!#!#0#@#");
+    strcpy(buffer, "#@client#");
+    length = strlen(buffer);
+    strcpy(&buffer[length],name);
+    length = strlen(buffer);
+    strcpy(&buffer[length],"#!#!#0#@#");
+    printf("buffer: %s\n",buffer);
     send(sock , buffer, sizeof(buffer) , 0 );
-    
-    //printIntroMessage(buffer);
-    //TextUI(buffer, DestUsername);
+    max_sd = sock;
+    FD_ZERO(&readfds);
+    FD_ZERO(&masterfd);
+    FD_SET(sock,&masterfd);
+    FD_SET(STDIN,&masterfd);
     while (1){
-	//int message_to_whom = validateBuff(buffer);
-        //printf("%s\n",buffer);
+        readfds = masterfd;
         printf("Enter destination username :\n");
-        scanf("%[^\n]",DestUsername);
-        scanf("%c",&c);
-        printf("Enter your Mesage: \n");
-        scanf("%[^\n]",message);
-        scanf("%c",&c);
-        strcpy(buffer,"#@#");
-        //src address
-        strcat(buffer,isClient);
-        strcat(buffer,"#");
-        strcat(buffer,"one#");
-        //dest address
-        strcat(buffer,DestUsername);
-        strcat(buffer,"#");
-        //client or server
-        //message
-        strcat(buffer,message);
-        strcat(buffer,"#");
-        //sending message
-        strcat(buffer,"0#@#");
-        
-        send(sock , buffer, sizeof(buffer) , 0 );
-        printf("message sent\n");
-        if ((read (sock, buffer, sizeof(buffer))) > 0);
-            printf("Received : %s",buffer);
+        activity = select( max_sd + 1 , &readfds , NULL , NULL , NULL);
+        if ((activity < 0) && (errno!=EINTR)) 
+            printf("select error");
+        if (FD_ISSET(sock, &readfds)) {
+            valread = read(sock, buffer, 1024);
+            if ((valread == 0)) {
+                printf("\nConnection closed from server\n");
+                close(sock);
+                break;
+            } else {
+                printf("\nReceived : %s\n",buffer);
+                printf("Enter destination username :\n");
+            }
+        } //else {
+            scanf("%[^\n]",DestUsername);
+            scanf("%c",&c);
+            printf("Enter your Mesage: \n");
+            scanf("%[^\n]",message);
+            scanf("%c",&c);
+            strcpy(buffer,"#@#");
+            //src address
+            strcat(buffer,isClient);
+            strcat(buffer,"#");
+            strcat(buffer,name);
+            strcat(buffer,"#");
+            //dest address
+            strcat(buffer,DestUsername);
+            strcat(buffer,"#");
+            //client or server
+            //message
+            strcat(buffer,message);
+            strcat(buffer,"#");
+            //sending message
+            strcat(buffer,"0#@#");
+             
+            write(sock , buffer, sizeof(buffer));
+            printf("message sent\n");
+        //}
     }
     return 0;
 }
 
-int main (){
-    client(49152);
+int main (int argc, char *argv[]){
+    client(atoi(argv[1]),argv[2]);
     return 0;
 }
