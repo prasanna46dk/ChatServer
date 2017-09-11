@@ -9,9 +9,93 @@
 #include <sys/socket.h> 
 #include <netinet/in.h> 
 #include <sys/time.h> //FD_SET, FD_ISSET, FD_ZERO macros 
+#define MAXRECVSTRING 1024
 #define TRUE   1 
 #define FALSE  0 
 
+int listen_broadcast_message(){
+    int sock;                         /* Socket */
+    struct sockaddr_in broadcastAddr; /* Broadcast Address */
+    unsigned short broadcastPort = 49153;     /* Port */
+    char recvString[MAXRECVSTRING+1]; /* Buffer for received string */
+    int recvStringLen;                /* Length of received string */
+
+    //if (argc != 2)    /* Test for correct number of arguments */
+    //{
+    //    fprintf(stderr,"Usage: %s <Broadcast Port>\n", argv[0]);
+    //    exit(1);
+    //}
+
+    //broadcastPort = atoi();   /* First arg: broadcast port */
+
+    /* Create a best-effort datagram socket using UDP */
+    if ((sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0)
+    //if ((sock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
+        perror("socket() failed");
+
+    /* Construct bind structure */
+    memset(&broadcastAddr, 0, sizeof(broadcastAddr));   /* Zero out structure */
+    broadcastAddr.sin_family = AF_INET;                 /* Internet address family */
+    broadcastAddr.sin_addr.s_addr = inet_addr("127.0.0.1");//htonl(INADDR_ANY);  /* Any incoming interface */
+    broadcastAddr.sin_port = htons(broadcastPort);      /* Broadcast port */
+
+    /* Bind to the broadcast port */
+    if (bind(sock, (struct sockaddr *) &broadcastAddr, sizeof(broadcastAddr)) < 0)
+        perror("bind() failed");
+
+    /* Receive a single datagram from the server */
+    if ((fcntl(sock, F_SETFL, /*flags | */O_NONBLOCK)) != 0)
+        {printf ("fcntl failed.\n"); close(sock);return -1;}
+    
+    if ((recvStringLen = recvfrom(sock, recvString, MAXRECVSTRING, 0, NULL, 0)) < 0)
+    //This means that no other servers are runnning on so return unsuccessful here  
+    //if(read(sock, recvString, sizeof(recvString)) == 0)
+       {printf("recvfrom() failed\n");close(sock);return -1;}
+        
+
+    recvString[recvStringLen] = '\0';
+    printf("Received: %s\n", recvString);    /* Print the received string */
+    
+    close(sock);
+    //exit(0);
+}
+
+int broadcast_message(){
+//    void sendBroad(char *dstIP, char *localIP)
+    int sock;                         /* Socket */
+    struct sockaddr_in broadcastAddr; /* Broadcast address */
+    int broadcastPermission;          /* Socket opt to set permission to broadcast */
+    unsigned int localIPLen;          /* Length of string to broadcast */
+
+
+    /* Create socket for sending/receiving datagrams */
+    if ((sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0)
+    //if ((sock = socket(AF_UNIX, SOCK_DGRAM, 0)) < 0)
+        perror("socket() failed");
+
+    /* Set socket to allow broadcast */
+    broadcastPermission = 1;
+    if (setsockopt(sock, SOL_SOCKET, SO_BROADCAST, (void *) &broadcastPermission, 
+          sizeof(broadcastPermission)) < 0)
+        perror("setsockopt() failed");
+
+    /* Construct local address structure */
+    memset(&broadcastAddr, 0, sizeof(broadcastAddr));   /* Zero out structure */
+    broadcastAddr.sin_family = AF_INET;                 /* Internet address family */
+    broadcastAddr.sin_addr.s_addr = /*htonl(INADDR_BROADCAST);*/inet_addr("127.0.0.1");   /* Broadcast IP address */
+    broadcastAddr.sin_port = htons(49153);      /* Broadcast port */
+
+    localIPLen = strlen("127.0.0.1");  /* Find length of localIP */
+    for (; ;) //doesnt mean anything so far, not important
+    {
+    /* Broadcast localIP in datagram to clients */
+    if (sendto(sock, "127.0.0.1", localIPLen, 0, (struct sockaddr *) 
+          &broadcastAddr, sizeof(broadcastAddr)) != localIPLen)
+        perror("sendto() sent a different number of bytes than expected");
+    //else 
+    //    printf("Message Broadcasted.\n");
+    }
+}
 typedef struct SocketTable {
      int socket;
      char clientName[10];
